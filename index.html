@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HW1 - 台灣人口變化靜態視覺化</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="page">
+    <header>
+      <p class="eyebrow">Data Analytics and Visualization Applications · HW1</p>
+      <h1>台灣人口連續 32 個月負成長</h1>
+      <p class="lead">
+        2026 年 8 月底台灣總人口為 23,224,721 人，較去年同期減少 103,622 人（-0.44%）。
+        不過各縣市人口變化並不一致，下圖比較年增率最高與減少幅度最大的縣市。
+      </p>
+    </header>
+
+    <section class="summary-grid" aria-label="2026年8月人口摘要">
+      <article class="stat">
+        <span class="stat-label">總人口</span>
+        <strong>23,224,721</strong>
+        <small>人</small>
+      </article>
+      <article class="stat">
+        <span class="stat-label">較去年同期</span>
+        <strong>-103,622</strong>
+        <small>人（-0.44%）</small>
+      </article>
+      <article class="stat">
+        <span class="stat-label">8 月出生</span>
+        <strong>7,492</strong>
+        <small>人</small>
+      </article>
+      <article class="stat">
+        <span class="stat-label">8 月死亡</span>
+        <strong>16,470</strong>
+        <small>人</small>
+      </article>
+    </section>
+
+    <section class="chart-card">
+      <div class="chart-heading">
+        <div>
+          <h2>部分縣市人口年增減率</h2>
+          <p>與 2025 年 8 月相比，單位：%</p>
+        </div>
+        <div class="legend" aria-label="圖例">
+          <span><i class="dot positive"></i>人口增加</span>
+          <span><i class="dot negative"></i>人口減少</span>
+        </div>
+      </div>
+
+      <div id="chart" class="chart"></div>
+
+      <p class="annotation">
+        觀察重點：人口增加率最高的是連江縣（+0.32%），其次為桃園市（+0.25%）與新竹縣（+0.22%）；
+        人口減少幅度最大的則是金門縣（-1.55%）、嘉義縣（-1.16%）與彰化縣（-1.07%）。
+      </p>
+    </section>
+
+    <footer>
+      <p><strong>資料來源：</strong>中華民國內政部戶政司〈民國 115 年 8 月戶口統計資料分析〉，2026/09/10。</p>
+      <p><strong>新聞來源：</strong>聯合新聞網〈連續32個月負成長！台灣新生兒8月僅7492人…〉，2026/09/10。</p>
+      <p class="course-note">本圖使用 D3.js 製作，為靜態資料視覺化作業。</p>
+    </footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script>
+    const margin = { top: 30, right: 85, bottom: 55, left: 90 };
+    const outerWidth = 940;
+    const outerHeight = 520;
+    const width = outerWidth - margin.left - margin.right;
+    const height = outerHeight - margin.top - margin.bottom;
+
+    d3.csv("data.csv", d => ({
+      county: d.county,
+      rate: +d.rate
+    })).then(data => {
+      // 由高到低排列，讓正值與負值的差異更清楚
+      data.sort((a, b) => d3.descending(a.rate, b.rate));
+
+      const svg = d3.select("#chart")
+        .append("svg")
+        .attr("viewBox", `0 0 ${outerWidth} ${outerHeight}`)
+        .attr("role", "img")
+        .attr("aria-label", "2026年8月部分縣市人口年增減率水平長條圖")
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+      const x = d3.scaleLinear()
+        .domain([-1.7, 0.45])
+        .range([0, width]);
+
+      const y = d3.scaleBand()
+        .domain(data.map(d => d.county))
+        .range([0, height])
+        .padding(0.28);
+
+      // 垂直格線
+      svg.append("g")
+        .attr("class", "grid")
+        .attr("transform", `translate(0,${height})`)
+        .call(
+          d3.axisBottom(x)
+            .ticks(6)
+            .tickSize(-height)
+            .tickFormat("")
+        );
+
+      // X 軸
+      svg.append("g")
+        .attr("class", "x-axis")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x).ticks(6).tickFormat(d => `${d}%`));
+
+      // Y 軸
+      svg.append("g")
+        .attr("class", "y-axis")
+        .call(d3.axisLeft(y).tickSize(0))
+        .call(g => g.select(".domain").remove());
+
+      // 0% 基準線
+      svg.append("line")
+        .attr("class", "zero-line")
+        .attr("x1", x(0))
+        .attr("x2", x(0))
+        .attr("y1", 0)
+        .attr("y2", height);
+
+      // 長條
+      svg.selectAll(".bar")
+        .data(data)
+        .enter()
+        .append("rect")
+        .attr("class", d => d.rate >= 0 ? "bar positive-bar" : "bar negative-bar")
+        .attr("x", d => d.rate >= 0 ? x(0) : x(d.rate))
+        .attr("y", d => y(d.county))
+        .attr("width", d => Math.abs(x(d.rate) - x(0)))
+        .attr("height", y.bandwidth())
+        .attr("rx", 5);
+
+      // 數值標籤
+      svg.selectAll(".value")
+        .data(data)
+        .enter()
+        .append("text")
+        .attr("class", d => d.rate >= 0 ? "value positive-text" : "value negative-text")
+        .attr("x", d => d.rate >= 0 ? x(d.rate) + 10 : x(d.rate) - 10)
+        .attr("y", d => y(d.county) + y.bandwidth() / 2)
+        .attr("dy", "0.35em")
+        .attr("text-anchor", d => d.rate >= 0 ? "start" : "end")
+        .text(d => `${d.rate > 0 ? "+" : ""}${d.rate.toFixed(2)}%`);
+
+      // X 軸標題
+      svg.append("text")
+        .attr("class", "axis-title")
+        .attr("x", width / 2)
+        .attr("y", height + 48)
+        .attr("text-anchor", "middle")
+        .text("人口年增減率（%）");
+    }).catch(error => {
+      console.error(error);
+      d3.select("#chart")
+        .append("p")
+        .attr("class", "error")
+        .text("資料載入失敗，請用 Live Server 開啟本資料夾。");
+    });
+  </script>
+</body>
+</html>
